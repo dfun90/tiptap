@@ -35,7 +35,7 @@
 
 <script>
 import Fuse from 'fuse.js'
-import tippy from 'tippy.js'
+import tippy, { sticky } from 'tippy.js'
 import Icon from 'Components/Icon'
 import { Editor, EditorContent, EditorMenuBar } from 'tiptap'
 import {
@@ -63,12 +63,21 @@ export default {
           new Heading({ levels: [1, 2, 3] }),
           new Mention({
             // a list of all suggested items
-            items: () => [
-              { id: 1, name: 'Philipp Kühn' },
-              { id: 2, name: 'Hans Pagel' },
-              { id: 3, name: 'Kris Siepert' },
-              { id: 4, name: 'Justin Schueler' },
-            ],
+            items: async () => {
+              await new Promise(resolve => {
+                setTimeout(resolve, 500)
+              })
+              return [
+                { id: 1, name: 'Sven Adlung' },
+                { id: 2, name: 'Patrick Baber' },
+                { id: 3, name: 'Nick Hirche' },
+                { id: 4, name: 'Philip Isik' },
+                { id: 5, name: 'Timo Isik' },
+                { id: 6, name: 'Philipp Kühn' },
+                { id: 7, name: 'Hans Pagel' },
+                { id: 8, name: 'Sebastian Schrama' },
+              ]
+            },
             // is called when a suggestion starts
             onEnter: ({
               items, query, range, command, virtualNode,
@@ -103,18 +112,17 @@ export default {
             },
             // is called on every keyDown event while a suggestion is active
             onKeyDown: ({ event }) => {
-              // pressing up arrow
-              if (event.keyCode === 38) {
+              if (event.key === 'ArrowUp') {
                 this.upHandler()
                 return true
               }
-              // pressing down arrow
-              if (event.keyCode === 40) {
+
+              if (event.key === 'ArrowDown') {
                 this.downHandler()
                 return true
               }
-              // pressing enter
-              if (event.keyCode === 13) {
+
+              if (event.key === 'Enter') {
                 this.enterHandler()
                 return true
               }
@@ -125,17 +133,21 @@ export default {
             // this function is optional because there is basic filtering built-in
             // you can overwrite it if you prefer your own filtering
             // in this example we use fuse.js with support for fuzzy search
-            onFilter: (items, query) => {
+            onFilter: async (items, query) => {
               if (!query) {
                 return items
               }
+
+              await new Promise(resolve => {
+                setTimeout(resolve, 500)
+              })
 
               const fuse = new Fuse(items, {
                 threshold: 0.2,
                 keys: ['name'],
               })
 
-              return fuse.search(query)
+              return fuse.search(query).map(item => item.item)
             },
           }),
           new Code(),
@@ -159,7 +171,6 @@ export default {
       filteredUsers: [],
       navigatedUserIndex: 0,
       insertMention: () => {},
-      observer: null,
     }
   },
 
@@ -217,43 +228,34 @@ export default {
         return
       }
 
-      this.popup = tippy(node, {
-        content: this.$refs.suggestions,
-        trigger: 'mouseenter',
+      // ref: https://atomiks.github.io/tippyjs/v6/all-props/
+      this.popup = tippy('.page', {
+        getReferenceClientRect: node.getBoundingClientRect,
+        appendTo: () => document.body,
         interactive: true,
+        sticky: true, // make sure position of tippy is updated when content changes
+        plugins: [sticky],
+        content: this.$refs.suggestions,
+        trigger: 'mouseenter', // manual
+        showOnCreate: true,
         theme: 'dark',
         placement: 'top-start',
         inertia: true,
         duration: [400, 200],
-        showOnInit: true,
-        arrow: true,
-        arrowType: 'round',
       })
-
-      // we have to update tippy whenever the DOM is updated
-      if (MutationObserver) {
-        this.observer = new MutationObserver(() => {
-          this.popup.popperInstance.scheduleUpdate()
-        })
-        this.observer.observe(this.$refs.suggestions, {
-          childList: true,
-          subtree: true,
-          characterData: true,
-        })
-      }
     },
 
     destroyPopup() {
       if (this.popup) {
-        this.popup.destroy()
+        this.popup[0].destroy()
         this.popup = null
-      }
-
-      if (this.observer) {
-        this.observer.disconnect()
       }
     },
 
+  },
+
+  beforeDestroy() {
+    this.destroyPopup()
   },
 }
 </script>
@@ -306,36 +308,12 @@ export default {
   }
 }
 
-.tippy-tooltip.dark-theme {
+.tippy-box[data-theme~=dark] {
   background-color: $color-black;
   padding: 0;
   font-size: 1rem;
   text-align: inherit;
   color: $color-white;
   border-radius: 5px;
-
-  .tippy-backdrop {
-    display: none;
-  }
-
-  .tippy-roundarrow {
-    fill: $color-black;
-  }
-
-  .tippy-popper[x-placement^=top] & .tippy-arrow {
-    border-top-color: $color-black;
-  }
-
-  .tippy-popper[x-placement^=bottom] & .tippy-arrow {
-    border-bottom-color: $color-black;
-  }
-
-  .tippy-popper[x-placement^=left] & .tippy-arrow {
-    border-left-color: $color-black;
-  }
-
-  .tippy-popper[x-placement^=right] & .tippy-arrow {
-    border-right-color: $color-black;
-  }
 }
 </style>
